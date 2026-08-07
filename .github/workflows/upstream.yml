@@ -1,0 +1,43 @@
+name: Fork PR upstream
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  direct-cache-control:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record untrusted event lineage
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          TRIGGER_ACTOR: ${{ github.actor }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          DIRECT_CANARY: CACHE_CASCADE_DIRECT_5915dbded2b6f737
+        run: |
+          test "$EVENT_NAME" = "pull_request_target"
+          test "$TRIGGER_ACTOR" = "toofikz2"
+          test "$HEAD_REPOSITORY" = "toofikz2/actions-cache-cascade-poc-20260807-041105"
+          test "$HEAD_IS_FORK" = "true"
+          printf 'EVENT_NAME=%s\n' "$EVENT_NAME"
+          printf 'TRIGGER_ACTOR=%s\n' "$TRIGGER_ACTOR"
+          printf 'HEAD_REPOSITORY=%s\n' "$HEAD_REPOSITORY"
+          mkdir -p direct-cache
+          printf '%s\n' "$DIRECT_CANARY" > direct-cache/canary.txt
+
+      - name: Direct untrusted cache save must be read-only
+        id: direct-save
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: direct-cache
+          key: cache-cascade-direct-5915dbded2b6f737
+
+      - name: Record direct save outcome
+        env:
+          SAVE_OUTCOME: ${{ steps.direct-save.outcome }}
+        run: printf 'DIRECT_SAVE_OUTCOME=%s\n' "$SAVE_OUTCOME"
