@@ -1,0 +1,48 @@
+name: Third hop cache probe
+
+on:
+  workflow_run:
+    workflows: ["Second hop cache probe"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  third-hop-cache-probe:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record third-hop lineage and create canary
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          UPSTREAM_ACTOR: ${{ github.event.workflow_run.actor.login }}
+          UPSTREAM_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+          THIRD_CANARY: CACHE_CASCADE_THIRD_5915dbded2b6f737
+        run: |
+          test "$EVENT_NAME" = "workflow_run"
+          test "$UPSTREAM_EVENT" = "workflow_run"
+          printf 'EVENT_NAME=%s\n' "$EVENT_NAME"
+          printf 'ACTOR=%s\n' "$ACTOR"
+          printf 'TRIGGERING_ACTOR=%s\n' "$TRIGGERING_ACTOR"
+          printf 'UPSTREAM_EVENT=%s\n' "$UPSTREAM_EVENT"
+          printf 'UPSTREAM_ACTOR=%s\n' "$UPSTREAM_ACTOR"
+          printf 'UPSTREAM_TRIGGERING_ACTOR=%s\n' "$UPSTREAM_TRIGGERING_ACTOR"
+          mkdir -p third-cache
+          printf '%s\n' "$THIRD_CANARY" > third-cache/canary.txt
+
+      - name: Attempt third cascade cache save
+        id: third-save
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: third-cache
+          key: cache-cascade-third-5915dbded2b6f737
+
+      - name: Record third-hop save outcome
+        env:
+          SAVE_OUTCOME: ${{ steps.third-save.outcome }}
+        run: printf 'THIRD_SAVE_OUTCOME=%s\n' "$SAVE_OUTCOME"
