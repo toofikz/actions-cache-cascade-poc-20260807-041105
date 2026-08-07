@@ -9,6 +9,10 @@ permissions:
   contents: read
 
 jobs:
+  reusable-boundary-probe:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/reusable-cache.yml
+
   second-hop-cache-probe:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
