@@ -1,0 +1,37 @@
+name: Reusable cache boundary probe
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  reusable-cache-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record reusable boundary and create canary
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          REUSABLE_CANARY: CACHE_CASCADE_REUSABLE_5915dbded2b6f737
+        run: |
+          printf 'EVENT_NAME=%s\n' "$EVENT_NAME"
+          printf 'ACTOR=%s\n' "$ACTOR"
+          printf 'TRIGGERING_ACTOR=%s\n' "$TRIGGERING_ACTOR"
+          mkdir -p reusable-cache
+          printf '%s\n' "$REUSABLE_CANARY" > reusable-cache/canary.txt
+
+      - name: Attempt cache save through reusable workflow boundary
+        id: reusable-save
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: reusable-cache
+          key: cache-cascade-reusable-5915dbded2b6f737
+
+      - name: Record reusable save outcome
+        env:
+          SAVE_OUTCOME: ${{ steps.reusable-save.outcome }}
+        run: printf 'REUSABLE_SAVE_OUTCOME=%s\n' "$SAVE_OUTCOME"
