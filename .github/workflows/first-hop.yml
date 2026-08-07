@@ -1,0 +1,46 @@
+name: First hop cache control
+
+on:
+  workflow_run:
+    workflows: ["Fork PR upstream"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  first-hop-cache-control:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record first-hop lineage
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          UPSTREAM_ACTOR: ${{ github.event.workflow_run.actor.login }}
+          UPSTREAM_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+          UPSTREAM_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          FIRST_CANARY: CACHE_CASCADE_FIRST_5915dbded2b6f737
+        run: |
+          test "$EVENT_NAME" = "workflow_run"
+          test "$UPSTREAM_EVENT" = "pull_request_target"
+          printf 'EVENT_NAME=%s\n' "$EVENT_NAME"
+          printf 'UPSTREAM_EVENT=%s\n' "$UPSTREAM_EVENT"
+          printf 'UPSTREAM_ACTOR=%s\n' "$UPSTREAM_ACTOR"
+          printf 'UPSTREAM_TRIGGERING_ACTOR=%s\n' "$UPSTREAM_TRIGGERING_ACTOR"
+          printf 'UPSTREAM_HEAD_REPOSITORY=%s\n' "$UPSTREAM_HEAD_REPOSITORY"
+          mkdir -p first-cache
+          printf '%s\n' "$FIRST_CANARY" > first-cache/canary.txt
+
+      - name: First cascade cache save must remain read-only
+        id: first-save
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: first-cache
+          key: cache-cascade-first-5915dbded2b6f737
+
+      - name: Record first-hop save outcome
+        env:
+          SAVE_OUTCOME: ${{ steps.first-save.outcome }}
+        run: printf 'FIRST_SAVE_OUTCOME=%s\n' "$SAVE_OUTCOME"
