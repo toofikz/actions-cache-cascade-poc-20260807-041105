@@ -1,0 +1,48 @@
+name: Second hop cache probe
+
+on:
+  workflow_run:
+    workflows: ["First hop cache control"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  second-hop-cache-probe:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record second-hop lineage and create bounded payload
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          UPSTREAM_ACTOR: ${{ github.event.workflow_run.actor.login }}
+          UPSTREAM_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+          UPSTREAM_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          SECOND_CANARY: CACHE_CASCADE_SECOND_5915dbded2b6f737
+        run: |
+          test "$EVENT_NAME" = "workflow_run"
+          test "$UPSTREAM_EVENT" = "workflow_run"
+          printf 'EVENT_NAME=%s\n' "$EVENT_NAME"
+          printf 'UPSTREAM_EVENT=%s\n' "$UPSTREAM_EVENT"
+          printf 'UPSTREAM_ACTOR=%s\n' "$UPSTREAM_ACTOR"
+          printf 'UPSTREAM_TRIGGERING_ACTOR=%s\n' "$UPSTREAM_TRIGGERING_ACTOR"
+          printf 'UPSTREAM_HEAD_REPOSITORY=%s\n' "$UPSTREAM_HEAD_REPOSITORY"
+          mkdir -p second-cache
+          printf '#!/usr/bin/env bash\nprintf "TRUSTED_CACHE_EXEC=%%s\\n" "$SECOND_CANARY"\n' > second-cache/payload.sh
+          chmod +x second-cache/payload.sh
+          printf '%s\n' "$SECOND_CANARY" > second-cache/canary.txt
+
+      - name: Attempt second cascade cache save
+        id: second-save
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: second-cache
+          key: cache-cascade-second-5915dbded2b6f737
+
+      - name: Record second-hop save outcome
+        env:
+          SAVE_OUTCOME: ${{ steps.second-save.outcome }}
+        run: printf 'SECOND_SAVE_OUTCOME=%s\n' "$SAVE_OUTCOME"
