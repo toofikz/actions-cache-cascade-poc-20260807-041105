@@ -2,7 +2,7 @@ name: Fork PR upstream
 
 on:
   pull_request_target:
-    types: [opened]
+    types: [opened, synchronize]
 
 permissions:
   contents: read
